@@ -38,16 +38,21 @@ connectDB();
 // Register
 app.post('/api/register', async (req, res) => {
   const { username, email, password } = req.body;
+  console.log('Register endpoint hit', req.body);
   try {
     const existing = await User.findOne({ email });
+    console.log('Existing user:', existing);
     if (existing) {
+      console.log('Email already in use:', email);
       return res.status(409).json({ message: 'Email already in use.' });
     }
     const hash = await bcrypt.hash(password, 10);
     const user = new User({ username, email, password: hash, databases: [] });
     await user.save();
+    console.log('User registered:', email);
     res.json({ message: 'Registration successful.' });
   } catch (err) {
+    console.error('Registration error:', err);
     res.status(500).json({ message: 'Server error.' });
   }
 });
