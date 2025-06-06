@@ -191,9 +191,7 @@ app.get('/api/saved-connections', verifyToken, async (req, res) => {
 
 app.post('/api/list-databases', async (req, res) => {
   const { connectionString } = req.body;
-  if (!connectionString) {
-    return res.status(400).json({ error: 'No connection string provided.' });
-  }
+  console.log('Received connection string:', connectionString);
   let client;
   try {
     client = new MongoClient(connectionString, { serverApi: { version: '1' } });
@@ -201,11 +199,10 @@ app.post('/api/list-databases', async (req, res) => {
     const admin = client.db().admin();
     const dbs = await admin.listDatabases();
     await client.close();
-    // Always return an array of database names
     return res.json(Array.isArray(dbs.databases) ? dbs.databases.map(db => db.name) : []);
   } catch (err) {
     if (client) await client.close();
-    // Detect authentication error and return a clear message
+    console.error('Error connecting to MongoDB:', err); // <-- Add this line
     if (err.message && err.message.toLowerCase().includes('auth')) {
       return res.status(401).json({ error: 'Authentication failed. Please check your username and password.' });
     }
