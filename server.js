@@ -228,6 +228,21 @@ app.post('/api/list-collections', async (req, res) => {
 const userRoutes = require('./routes/user');
 app.use('/api/user', userRoutes);
 
+// Delete a saved connection
+app.delete('/api/saved-connections/:id', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    // Remove the connection by its _id or unique identifier
+    user.databases = user.databases.filter(
+      conn => conn._id.toString() !== req.params.id
+    );
+    await user.save();
+    res.json({ message: 'Connection deleted.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete connection.' });
+  }
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
