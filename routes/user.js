@@ -17,4 +17,4 @@ router.get('/', verifyToken, async (req, res) => {
   }
 });
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = router;
