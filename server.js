@@ -71,7 +71,7 @@ app.post('/api/login', async (req, res) => {
     process.env.JWT_SECRET,
     { expiresIn: '1d' }
   );
-  res.json({ token });
+  return res.json({ token }); // <-- THIS LINE IS CRITICAL
 });
 
 app.post('/api/create-database', verifyToken, async (req, res) => {
@@ -120,9 +120,10 @@ app.post('/api/databases', async (req, res) => {
     const admin = client.db().admin();
     const dbs = await admin.listDatabases();
     await client.close();
-    res.json(dbs.databases);
+    // Always return an array of database names
+    res.json(Array.isArray(dbs.databases) ? dbs.databases.map(db => db.name) : []);
   } catch (err) {
-    res.status(400).json({ error: 'Invalid connection string or unable to connect.' });
+    res.status(500).json({ error: 'Failed to list databases.' });
   }
 });
 
@@ -146,19 +147,16 @@ app.post('/api/collections', async (req, res) => {
 
 app.post('/api/documents', async (req, res) => {
   const { connectionString, dbName, collectionName } = req.body;
-  if (!connectionString || !dbName || !collectionName) {
-    return res.status(400).json({ error: 'Connection string, dbName, and collectionName required.' });
-  }
   try {
     const client = new MongoClient(connectionString);
     await client.connect();
     const db = client.db(dbName);
-    const collection = db.collection(collectionName);
-    const documents = await collection.find({}).limit(100).toArray(); // limit for safety
+    const docs = await db.collection(collectionName).find({}).limit(100).toArray();
     await client.close();
-    res.json(documents);
+    // Always return an array of documents
+    res.json(Array.isArray(docs) ? docs : []);
   } catch (err) {
-    res.status(400).json({ error: 'Failed to fetch documents.' });
+    res.status(500).json({ error: 'Failed to fetch documents.' });
   }
 });
 
@@ -193,33 +191,40 @@ app.get('/api/saved-connections', verifyToken, async (req, res) => {
 
 app.post('/api/list-databases', async (req, res) => {
   const { connectionString } = req.body;
-  if (!connectionString) return res.status(400).json({ message: 'No connection string provided.' });
+  if (!connectionString) {
+    return res.status(400).json({ error: 'No connection string provided.' });
+  }
+  let client;
   try {
-    const client = new MongoClient(connectionString);
+    client = new MongoClient(connectionString, { serverApi: { version: '1' } });
     await client.connect();
-    const adminDb = client.db().admin();
-    const dbs = await adminDb.listDatabases();
+    const admin = client.db().admin();
+    const dbs = await admin.listDatabases();
     await client.close();
-    res.json(dbs.databases.map(db => db.name));
+    // Always return an array of database names
+    return res.json(Array.isArray(dbs.databases) ? dbs.databases.map(db => db.name) : []);
   } catch (err) {
-    res.status(400).json({ message: 'Failed to list databases.' });
+    if (client) await client.close();
+    // Detect authentication error and return a clear message
+    if (err.message && err.message.toLowerCase().includes('auth')) {
+      return res.status(401).json({ error: 'Authentication failed. Please check your username and password.' });
+    }
+    return res.status(500).json({ error: 'Failed to list databases.' });
   }
 });
 
 app.post('/api/list-collections', async (req, res) => {
-  const { dbName, connectionString } = req.body;
-  if (!dbName || !connectionString) {
-    return res.status(400).json({ message: 'dbName and connectionString required.' });
-  }
+  const { connectionString, dbName } = req.body;
   try {
     const client = new MongoClient(connectionString);
     await client.connect();
     const db = client.db(dbName);
-    const collections = await db.listCollections().toArray();
+    const cols = await db.listCollections().toArray();
     await client.close();
-    res.json(collections.map(col => col.name));
+    // Always return an array of collection names
+    res.json(Array.isArray(cols) ? cols.map(col => col.name) : []);
   } catch (err) {
-    res.status(400).json({ message: 'Failed to fetch collections.' });
+    res.status(500).json({ error: 'Failed to list collections.' });
   }
 });
 
