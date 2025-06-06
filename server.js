@@ -228,8 +228,9 @@ app.post('/api/list-collections', async (req, res) => {
 const userRoutes = require('./routes/user');
 app.use('/api/user', userRoutes);
 
-app.listen(process.env.PORT || 5000, () => 
-  console.log(`Server running on port ${process.env.PORT || 5000}`)
-);
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
 module.exports.verifyToken = verifyToken;
