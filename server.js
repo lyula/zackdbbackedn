@@ -13,9 +13,12 @@ app.use(cors());
 app.use(express.json());
 
 // Mongoose connection for all user operations
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Mongoose connected'))
-  .catch(err => console.error('Mongoose connection error:', err));
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => console.log('Connected to MongoDB Atlas'))
+.catch(err => console.error('Database connection error:', err));
 
 // Native MongoDB driver ONLY for dashboard/database/collection/document operations
 const uri = process.env.MONGODB_URI;
