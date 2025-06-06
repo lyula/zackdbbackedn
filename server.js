@@ -37,16 +37,12 @@ connectDB();
 
 // Register
 app.post('/api/register', async (req, res) => {
-  console.log('Register endpoint hit', req.body);
   const { username, email, password } = req.body;
-  if (!username || !email || !password)
-    return res.status(400).json({ message: 'All fields required.' });
-
   try {
     const existing = await User.findOne({ email });
-    if (existing)
-      return res.status(400).json({ message: 'Email already registered.' });
-
+    if (existing) {
+      return res.status(409).json({ message: 'Email already in use.' });
+    }
     const hash = await bcrypt.hash(password, 10);
     const user = new User({ username, email, password: hash, databases: [] });
     await user.save();
