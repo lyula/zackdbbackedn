@@ -112,9 +112,9 @@ app.post('/api/list-collections', async (req, res) => {
   }
 });
 
-// Fetch documents for a collection (with optional limit)
+// Fetch documents for a collection (with pagination and latest first)
 app.post('/api/documents', async (req, res) => {
-  const { connectionString, dbName, collectionName, limit } = req.body;
+  const { connectionString, dbName, collectionName, page = 1, pageSize = 10 } = req.body;
   if (!connectionString || !dbName || !collectionName) {
     return res.status(400).json({ error: 'Missing parameters.' });
   }
@@ -124,14 +124,18 @@ app.post('/api/documents', async (req, res) => {
     await client.connect();
     const db = client.db(dbName);
     const col = db.collection(collectionName);
-    let cursor = col.find({});
-    // Only apply limit if it's a positive number
-    if (limit && Number(limit) > 0) {
-      cursor = cursor.limit(Number(limit));
-    }
-    const docs = await cursor.toArray();
+
+    const skip = (Number(page) - 1) * Number(pageSize);
+    // Sort by _id descending to get latest first
+    const docs = await col.find({})
+      .sort({ _id: -1 })
+      .skip(skip)
+      .limit(Number(pageSize))
+      .toArray();
+    const total = await col.countDocuments();
+
     await client.close();
-    return res.json(docs);
+    return res.json({ documents: docs, total });
   } catch (err) {
     if (client) await client.close();
     return res.status(500).json({ error: 'Failed to fetch documents.' });
