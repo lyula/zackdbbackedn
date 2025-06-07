@@ -5,10 +5,11 @@ const verifyToken = require('../middleware/verifyToken');
 
 // Save a new connection string for the logged-in user
 router.post('/', verifyToken, async (req, res) => {
-  const { connectionString, clusterName } = req.body;
+  let { connectionString, clusterName } = req.body;
   if (!connectionString || !clusterName) {
     return res.status(400).json({ message: 'Both clusterName and connectionString are required.' });
   }
+  connectionString = connectionString.trim();
   try {
     // Check for duplicate cluster name for this user
     const nameExists = await SavedConnection.findOne({ userId: req.user.userId, clusterName });
@@ -26,9 +27,9 @@ router.post('/', verifyToken, async (req, res) => {
   } catch (err) {
     // Handle duplicate key error from MongoDB
     if (err.code === 11000) {
-      return res.status(400).json({ message: 'You already have this connection string saved.' });
+      return res.status(400).json({ message: 'You already have that connection string saved.' });
     }
-    return res.status(500).json({ message: 'Failed to save connection string.' });
+    return res.status(500).json({ message: 'You already have that connection string saved.Check your saved connections list.' });
   }
 });
 
