@@ -117,8 +117,9 @@ app.post('/api/list-collections', async (req, res) => {
 });
 
 // Fetch documents for a collection (with pagination and latest first)
-app.post('/api/documents', async (req, res) => {
-  const { connectionString, dbName, collectionName, page = 1, pageSize = 10 } = req.body;
+app.get('/api/documents', async (req, res) => {
+  // Read from query string
+  const { connectionString, dbName, collectionName, page = 1, pageSize = 10 } = req.query;
   if (!connectionString || !dbName || !collectionName) {
     return res.status(400).json({ error: 'Missing parameters.' });
   }
@@ -138,10 +139,14 @@ app.post('/api/documents', async (req, res) => {
     const total = await col.countDocuments();
 
     await client.close();
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.set('Surrogate-Control', 'no-store');
     return res.json({ documents: docs, total });
   } catch (err) {
     if (client) await client.close();
-    console.error('Error in /api/documents:', err); // Add this line
+    console.error('Error in /api/documents:', err);
     return res.status(500).json({ error: 'Failed to fetch documents.' });
   }
 });
