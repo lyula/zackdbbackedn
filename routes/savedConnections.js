@@ -7,14 +7,14 @@ const verifyToken = require('../middleware/verifyToken');
 router.post('/', verifyToken, async (req, res) => {
   let { connectionString, clusterName } = req.body;
   if (!connectionString || !clusterName) {
-    return res.status(400).json({ message: 'Both clusterName and connectionString are required.' });
+    return res.status(400).json({ message: 'Connection string already exists, check saved connections list.' });
   }
   connectionString = connectionString.trim();
   try {
     // Check for duplicate cluster name for this user
     const nameExists = await SavedConnection.findOne({ userId: req.user.userId, clusterName });
     if (nameExists) {
-      return res.status(400).json({ message: 'Cluster name already exists.' });
+      return res.status(400).json({ message: 'Connection string already exists, check saved connections list.' });
     }
     // Let MongoDB handle duplicate connection strings via unique index
     const saved = new SavedConnection({
@@ -25,27 +25,8 @@ router.post('/', verifyToken, async (req, res) => {
     await saved.save();
     return res.json({ message: 'Connection string saved.', saved });
   } catch (err) {
-    console.error('Error saving connection:', err);
-
-    // Robust duplicate key error check (works for Mongoose and MongoDB)
-    if (
-      err.code === 11000 ||
-      (err.message && (
-        err.message.toLowerCase().includes('duplicate key') ||
-        err.message.toLowerCase().includes('e11000')
-      ))
-    ) {
-      return res.status(400).json({ message: 'Connection string already exists in your saved connections.' });
-    }
-
-    // Mongoose validation errors
-    if (err.errors) {
-      const messages = Object.values(err.errors).map(e => e.message).join(' ');
-      return res.status(400).json({ message: messages });
-    }
-
-    // Fallback for any other error
-    return res.status(500).json({ message: err.message || 'Failed to save connection string.' });
+    // For ALL errors, always return the same message
+    return res.status(400).json({ message: 'Connection string already exists, check saved connections list.' });
   }
 });
 
