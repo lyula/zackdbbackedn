@@ -20,9 +20,10 @@ router.post('/', verifyToken, async (req, res) => {
       clusterName
     });
     await saved.save();
-    res.json({ message: 'Connection string saved.', saved });
+    return res.json({ message: 'Connection string saved.', saved });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to save connection string.' });
+    // Always return JSON, even on error
+    return res.status(500).json({ message: 'Failed to save connection string.' });
   }
 });
 
