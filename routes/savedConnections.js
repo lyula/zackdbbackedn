@@ -10,16 +10,12 @@ router.post('/', verifyToken, async (req, res) => {
     return res.status(400).json({ message: 'Both clusterName and connectionString are required.' });
   }
   try {
-    // Check for duplicate cluster name
+    // Check for duplicate cluster name for this user
     const nameExists = await SavedConnection.findOne({ userId: req.user.userId, clusterName });
     if (nameExists) {
       return res.status(400).json({ message: 'Cluster name already exists.' });
     }
-    // Check for duplicate connection string
-    const connExists = await SavedConnection.findOne({ userId: req.user.userId, connectionString });
-    if (connExists) {
-      return res.status(400).json({ message: 'You already have this connection string saved.' });
-    }
+    // Let MongoDB handle duplicate connection strings via unique index
     const saved = new SavedConnection({
       userId: req.user.userId,
       connectionString,
@@ -28,7 +24,10 @@ router.post('/', verifyToken, async (req, res) => {
     await saved.save();
     return res.json({ message: 'Connection string saved.', saved });
   } catch (err) {
-    // Always return JSON, even on error
+    // Handle duplicate key error from MongoDB
+    if (err.code === 11000) {
+      return res.status(400).json({ message: 'You already have this connection string saved.' });
+    }
     return res.status(500).json({ message: 'Failed to save connection string.' });
   }
 });
