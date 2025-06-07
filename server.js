@@ -124,13 +124,12 @@ app.post('/api/documents', async (req, res) => {
     await client.connect();
     const db = client.db(dbName);
     const col = db.collection(collectionName);
-    // Use the provided limit, or default to 10000, or 0 for all
-    let docs;
+    let cursor = col.find({});
+    // Only apply limit if it's a positive number
     if (limit && Number(limit) > 0) {
-      docs = await col.find({}).limit(Number(limit)).toArray();
-    } else {
-      docs = await col.find({}).toArray();
+      cursor = cursor.limit(Number(limit));
     }
+    const docs = await cursor.toArray();
     await client.close();
     return res.json(docs);
   } catch (err) {
