@@ -44,7 +44,10 @@ router.get('/', verifyToken, async (req, res) => {
 router.delete('/:connectionString', verifyToken, async (req, res) => {
   try {
     const decodedConnStr = decodeURIComponent(req.params.connectionString);
-    await SavedConnection.deleteOne({ userId: req.user.userId, connectionString: decodedConnStr });
+    const result = await SavedConnection.deleteOne({ userId: req.user.userId, connectionString: decodedConnStr });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ message: 'Connection not found.' });
+    }
     res.json({ message: 'Connection deleted.' });
   } catch (err) {
     res.status(500).json({ message: 'Failed to delete connection.' });
