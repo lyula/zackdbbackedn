@@ -40,13 +40,14 @@ router.get('/', verifyToken, async (req, res) => {
   }
 });
 
-// Delete a saved connection by clusterName
-router.delete('/:clusterName', verifyToken, async (req, res) => {
+// Delete a saved connection by connectionString
+router.delete('/:connectionString', verifyToken, async (req, res) => {
   try {
-    await SavedConnection.deleteOne({ userId: req.user.userId, clusterName: req.params.clusterName });
+    const decodedConnStr = decodeURIComponent(req.params.connectionString);
+    await SavedConnection.deleteOne({ userId: req.user.userId, connectionString: decodedConnStr });
     res.json({ message: 'Connection deleted.' });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to delete connection.' });
+    res.status(500).json({ message: 'Failed to delete connection.' });
   }
 });
 
