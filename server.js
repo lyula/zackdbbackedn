@@ -161,10 +161,8 @@ app.post('/api/documents', async (req, res) => {
   }
 });
 
-const savedConnectionsRoutes = require('./routes/savedConnections');
-app.use('/api/saved-connections', savedConnectionsRoutes);
 
-// Save a new connection (now with clusterName)
+// Save a new connection (with clusterName)
 app.post('/api/saved-connections', verifyToken, async (req, res) => {
   const { connectionString, clusterName } = req.body;
   if (!connectionString || !clusterName) return res.status(400).json({ message: 'Both clusterName and connectionString are required.' });
@@ -182,7 +180,7 @@ app.post('/api/saved-connections', verifyToken, async (req, res) => {
   }
 });
 
-// Get saved connections (now returns array of objects)
+// Get saved connections (returns array of objects)
 app.get('/api/saved-connections', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
