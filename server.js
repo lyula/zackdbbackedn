@@ -3,6 +3,11 @@ const { MongoClient, ObjectId } = require('mongodb');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const cors = require('cors');
+
+app.use(cors({
+  origin: ['https://zackdbfrontend.vercel.app', 'http://localhost:3000'],
+  credentials: true
+}));
 require('dotenv').config();
 const User = require('./models/user');
 const SavedConnection = require('./models/ConnectionString');
@@ -10,7 +15,6 @@ const mongoose = require('mongoose');
 const verifyToken = require('./middleware/verifyToken');
 
 const app = express();
-app.use(cors());
 app.use(express.json());
 
 // Mongoose connection for all user operations
@@ -126,7 +130,6 @@ app.post('/api/documents', async (req, res) => {
     const col = db.collection(collectionName);
 
     const skip = (Number(page) - 1) * Number(pageSize);
-    // Sort by _id descending to get latest first
     const docs = await col.find({})
       .sort({ _id: -1 })
       .skip(skip)
@@ -138,6 +141,7 @@ app.post('/api/documents', async (req, res) => {
     return res.json({ documents: docs, total });
   } catch (err) {
     if (client) await client.close();
+    console.error('Error in /api/documents:', err); // Add this line
     return res.status(500).json({ error: 'Failed to fetch documents.' });
   }
 });
