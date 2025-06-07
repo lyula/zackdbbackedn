@@ -47,9 +47,10 @@ app.post('/api/register', async (req, res) => {
       return res.status(409).json({ message: 'Email already in use.' });
     }
     const hash = await bcrypt.hash(password, 10);
+    // databases is now an array of objects
     const user = new User({ username, email, password: hash, databases: [] });
     await user.save();
-    return res.status(200).json({ message: 'Registration successful.' }); // <-- Explicit 200
+    return res.status(200).json({ message: 'Registration successful.' });
   } catch (err) {
     return res.status(500).json({ message: 'Server error.' });
   }
@@ -163,23 +164,25 @@ app.post('/api/documents', async (req, res) => {
 const savedConnectionsRoutes = require('./routes/savedConnections');
 app.use('/api/saved-connections', savedConnectionsRoutes);
 
-// Save a new connection string for the logged-in user
+// Save a new connection (now with clusterName)
 app.post('/api/saved-connections', verifyToken, async (req, res) => {
-  const { connectionString } = req.body;
-  if (!connectionString) return res.status(400).json({ message: 'No connection string provided.' });
+  const { connectionString, clusterName } = req.body;
+  if (!connectionString || !clusterName) return res.status(400).json({ message: 'Both clusterName and connectionString are required.' });
   try {
-    const user = await User.findByIdAndUpdate(
-      req.user.userId,
-      { $addToSet: { databases: connectionString } }, // Prevent duplicates
-      { new: true }
-    );
-    res.json({ message: 'Connection string saved.', databases: user.databases });
+    const user = await User.findById(req.user.userId);
+    // Prevent duplicate cluster names
+    if (user.databases.some(conn => conn.clusterName === clusterName)) {
+      return res.status(400).json({ message: 'Cluster name already exists.' });
+    }
+    user.databases.push({ clusterName, connectionString });
+    await user.save();
+    res.json({ message: 'Connection saved.', databases: user.databases });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to save connection string.' });
+    res.status(500).json({ message: 'Failed to save connection.' });
   }
 });
 
-// Get saved connection strings for the logged-in user
+// Get saved connections (now returns array of objects)
 app.get('/api/saved-connections', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
@@ -228,13 +231,12 @@ app.post('/api/list-collections', async (req, res) => {
 const userRoutes = require('./routes/user');
 app.use('/api/user', userRoutes);
 
-// Delete a saved connection
-app.delete('/api/saved-connections/:id', verifyToken, async (req, res) => {
+// Delete a saved connection by clusterName
+app.delete('/api/saved-connections/:clusterName', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
-    // Remove the connection by its _id or unique identifier
     user.databases = user.databases.filter(
-      conn => conn._id.toString() !== req.params.id
+      conn => conn.clusterName !== req.params.clusterName
     );
     await user.save();
     res.json({ message: 'Connection deleted.' });
