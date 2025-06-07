@@ -112,6 +112,33 @@ app.post('/api/list-collections', async (req, res) => {
   }
 });
 
+// Fetch documents for a collection (with optional limit)
+app.post('/api/documents', async (req, res) => {
+  const { connectionString, dbName, collectionName, limit } = req.body;
+  if (!connectionString || !dbName || !collectionName) {
+    return res.status(400).json({ error: 'Missing parameters.' });
+  }
+  let client;
+  try {
+    client = new MongoClient(connectionString, { serverApi: { version: '1' } });
+    await client.connect();
+    const db = client.db(dbName);
+    const col = db.collection(collectionName);
+    // Use the provided limit, or default to 10000, or 0 for all
+    let docs;
+    if (limit && Number(limit) > 0) {
+      docs = await col.find({}).limit(Number(limit)).toArray();
+    } else {
+      docs = await col.find({}).toArray();
+    }
+    await client.close();
+    return res.json(docs);
+  } catch (err) {
+    if (client) await client.close();
+    return res.status(500).json({ error: 'Failed to fetch documents.' });
+  }
+});
+
 // User routes
 const userRoutes = require('./routes/user');
 app.use('/api/user', userRoutes);
