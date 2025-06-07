@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 const cors = require('cors');
 require('dotenv').config();
 const User = require('./models/user');
-const SavedConnection = require('./models/SavedConnection');
+const SavedConnection = require('./models/ConnectionString');
 const mongoose = require('mongoose');
 const verifyToken = require('./middleware/verifyToken');
 
@@ -48,7 +48,6 @@ app.post('/api/register', async (req, res) => {
       return res.status(409).json({ message: 'Email already in use.' });
     }
     const hash = await bcrypt.hash(password, 10);
-    // Remove databases: []
     const user = new User({ username, email, password: hash });
     await user.save();
     return res.status(200).json({ message: 'Registration successful.' });
@@ -73,42 +72,10 @@ app.post('/api/login', async (req, res) => {
     process.env.JWT_SECRET,
     { expiresIn: '1d' }
   );
-  return res.json({ token }); // <-- THIS LINE IS CRITICAL
+  return res.json({ token });
 });
 
-// Save a new connection (with clusterName)
-app.post('/api/saved-connections', verifyToken, async (req, res) => {
-  const { connectionString, clusterName } = req.body;
-  if (!connectionString || !clusterName) {
-    return res.status(400).json({ message: 'Both clusterName and connectionString are required.' });
-  }
-  try {
-    // Prevent duplicate cluster names for this user
-    const exists = await SavedConnection.findOne({ userId: req.user.userId, clusterName });
-    if (exists) {
-      return res.status(400).json({ message: 'Cluster name already exists.' });
-    }
-    const saved = await SavedConnection.create({
-      userId: req.user.userId,
-      clusterName,
-      connectionString
-    });
-    res.json({ message: 'Connection saved.', connection: saved });
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to save connection.' });
-  }
-});
-
-// Get saved connections for the logged-in user
-app.get('/api/saved-connections', verifyToken, async (req, res) => {
-  try {
-    const connections = await SavedConnection.find({ userId: req.user.userId }).sort({ createdAt: -1 });
-    res.json(connections);
-  } catch {
-    res.status(500).json({ message: 'Failed to fetch connections.' });
-  }
-});
-
+// List databases for a given connection string
 app.post('/api/list-databases', async (req, res) => {
   const { connectionString } = req.body;
   console.log('Received connection string:', connectionString);
@@ -122,7 +89,7 @@ app.post('/api/list-databases', async (req, res) => {
     return res.json(Array.isArray(dbs.databases) ? dbs.databases.map(db => db.name) : []);
   } catch (err) {
     if (client) await client.close();
-    console.error('Error connecting to MongoDB:', err); // <-- Add this line
+    console.error('Error connecting to MongoDB:', err);
     if (err.message && err.message.toLowerCase().includes('auth')) {
       return res.status(401).json({ error: 'Authentication failed. Please check your username and password.' });
     }
@@ -130,6 +97,7 @@ app.post('/api/list-databases', async (req, res) => {
   }
 });
 
+// List collections for a given database
 app.post('/api/list-collections', async (req, res) => {
   const { connectionString, dbName } = req.body;
   try {
@@ -138,25 +106,19 @@ app.post('/api/list-collections', async (req, res) => {
     const db = client.db(dbName);
     const cols = await db.listCollections().toArray();
     await client.close();
-    // Always return an array of collection names
     res.json(Array.isArray(cols) ? cols.map(col => col.name) : []);
   } catch (err) {
     res.status(500).json({ error: 'Failed to list collections.' });
   }
 });
 
+// User routes
 const userRoutes = require('./routes/user');
 app.use('/api/user', userRoutes);
 
-// Delete a saved connection by clusterName
-app.delete('/api/saved-connections/:clusterName', verifyToken, async (req, res) => {
-  try {
-    await SavedConnection.deleteOne({ userId: req.user.userId, clusterName: req.params.clusterName });
-    res.json({ message: 'Connection deleted.' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to delete connection.' });
-  }
-});
+// Saved connections routes (all logic in the router)
+const savedConnectionsRoutes = require('./routes/savedConnections');
+app.use('/api/saved-connections', savedConnectionsRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

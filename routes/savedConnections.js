@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const SavedConnection = require('../models/SavedConnection'); // filename should match your model file
+const SavedConnection = require('../models/ConnectionString');
 const verifyToken = require('../middleware/verifyToken');
 
 // Save a new connection string for the logged-in user
@@ -10,7 +10,6 @@ router.post('/', verifyToken, async (req, res) => {
     return res.status(400).json({ message: 'Both clusterName and connectionString are required.' });
   }
   try {
-    // Prevent duplicate cluster names for this user
     const exists = await SavedConnection.findOne({ userId: req.user.userId, clusterName });
     if (exists) {
       return res.status(400).json({ message: 'Cluster name already exists.' });
@@ -34,6 +33,16 @@ router.get('/', verifyToken, async (req, res) => {
     res.json(connections);
   } catch {
     res.status(500).json({ message: 'Failed to fetch connections.' });
+  }
+});
+
+// Delete a saved connection by clusterName
+router.delete('/:clusterName', verifyToken, async (req, res) => {
+  try {
+    await SavedConnection.deleteOne({ userId: req.user.userId, clusterName: req.params.clusterName });
+    res.json({ message: 'Connection deleted.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete connection.' });
   }
 });
 
