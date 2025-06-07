@@ -27,9 +27,9 @@ router.post('/', verifyToken, async (req, res) => {
   } catch (err) {
     // Handle duplicate key error from MongoDB
     if (err.code === 11000) {
-      return res.status(400).json({ message: 'You already have that connection string saved.' });
+      return res.status(400).json({ message: 'Connection string already exists in your saved connections.' });
     }
-    return res.status(500).json({ message: 'You already have that connection string saved.Check your saved connections list.' });
+    return res.status(500).json({ message: 'Failed to save connection string.' });
   }
 });
 
