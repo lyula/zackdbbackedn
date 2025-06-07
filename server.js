@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const cors = require('cors');
 require('dotenv').config();
 const User = require('./models/user');
+const SavedConnection = require('./models/savedconnection');
 const mongoose = require('mongoose');
 const verifyToken = require('./middleware/verifyToken');
 
@@ -161,30 +162,34 @@ app.post('/api/documents', async (req, res) => {
   }
 });
 
-
 // Save a new connection (with clusterName)
 app.post('/api/saved-connections', verifyToken, async (req, res) => {
   const { connectionString, clusterName } = req.body;
-  if (!connectionString || !clusterName) return res.status(400).json({ message: 'Both clusterName and connectionString are required.' });
+  if (!connectionString || !clusterName) {
+    return res.status(400).json({ message: 'Both clusterName and connectionString are required.' });
+  }
   try {
-    const user = await User.findById(req.user.userId);
-    // Prevent duplicate cluster names
-    if (user.databases.some(conn => conn.clusterName === clusterName)) {
+    // Prevent duplicate cluster names for this user
+    const exists = await SavedConnection.findOne({ userId: req.user.userId, clusterName });
+    if (exists) {
       return res.status(400).json({ message: 'Cluster name already exists.' });
     }
-    user.databases.push({ clusterName, connectionString });
-    await user.save();
-    res.json({ message: 'Connection saved.', databases: user.databases });
+    const saved = await SavedConnection.create({
+      userId: req.user.userId,
+      clusterName,
+      connectionString
+    });
+    res.json({ message: 'Connection saved.', connection: saved });
   } catch (err) {
     res.status(500).json({ message: 'Failed to save connection.' });
   }
 });
 
-// Get saved connections (returns array of objects)
+// Get saved connections for the logged-in user
 app.get('/api/saved-connections', verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId);
-    res.json(user.databases || []);
+    const connections = await SavedConnection.find({ userId: req.user.userId }).sort({ createdAt: -1 });
+    res.json(connections);
   } catch {
     res.status(500).json({ message: 'Failed to fetch connections.' });
   }
@@ -232,11 +237,7 @@ app.use('/api/user', userRoutes);
 // Delete a saved connection by clusterName
 app.delete('/api/saved-connections/:clusterName', verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId);
-    user.databases = user.databases.filter(
-      conn => conn.clusterName !== req.params.clusterName
-    );
-    await user.save();
+    await SavedConnection.deleteOne({ userId: req.user.userId, clusterName: req.params.clusterName });
     res.json({ message: 'Connection deleted.' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete connection.' });
