@@ -25,11 +25,22 @@ router.post('/', verifyToken, async (req, res) => {
     await saved.save();
     return res.json({ message: 'Connection string saved.', saved });
   } catch (err) {
-    console.error('Error saving connection:', err); // <-- Added this line
-    if (err.code === 11000) {
+    console.error('Error saving connection:', err);
+
+    // Duplicate key error (Mongo/Mongoose)
+    if (err.code === 11000 || (err.message && err.message.includes('duplicate key'))) {
       return res.status(400).json({ message: 'Connection string already exists in your saved connections.' });
     }
-    return res.status(500).json({ message: err.message || 'Connection string already exists in your saved connections!' });
+
+    // Validation or other errors
+    if (err.errors) {
+      // Mongoose validation errors
+      const messages = Object.values(err.errors).map(e => e.message).join(' ');
+      return res.status(400).json({ message: messages });
+    }
+
+    // Fallback for any other error
+    return res.status(500).json({ message: err.message || 'Failed to save connection string.' });
   }
 });
 
