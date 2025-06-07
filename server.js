@@ -151,7 +151,7 @@ app.post('/api/documents', async (req, res) => {
     const client = new MongoClient(connectionString);
     await client.connect();
     const db = client.db(dbName);
-    const docs = await db.collection(collectionName).find({}).limit(100).toArray();
+    const docs = await db.collection(collectionName).find({}).limit(10000).toArray();
     await client.close();
     // Always return an array of documents
     res.json(Array.isArray(docs) ? docs : []);
