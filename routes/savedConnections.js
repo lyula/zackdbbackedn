@@ -10,9 +10,15 @@ router.post('/', verifyToken, async (req, res) => {
     return res.status(400).json({ message: 'Both clusterName and connectionString are required.' });
   }
   try {
-    const exists = await SavedConnection.findOne({ userId: req.user.userId, clusterName });
-    if (exists) {
+    // Check for duplicate cluster name
+    const nameExists = await SavedConnection.findOne({ userId: req.user.userId, clusterName });
+    if (nameExists) {
       return res.status(400).json({ message: 'Cluster name already exists.' });
+    }
+    // Check for duplicate connection string
+    const connExists = await SavedConnection.findOne({ userId: req.user.userId, connectionString });
+    if (connExists) {
+      return res.status(400).json({ message: 'You already have this connection string saved.' });
     }
     const saved = new SavedConnection({
       userId: req.user.userId,
