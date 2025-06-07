@@ -27,14 +27,19 @@ router.post('/', verifyToken, async (req, res) => {
   } catch (err) {
     console.error('Error saving connection:', err);
 
-    // Duplicate key error (Mongo/Mongoose)
-    if (err.code === 11000 || (err.message && err.message.includes('duplicate key'))) {
+    // Robust duplicate key error check (works for Mongoose and MongoDB)
+    if (
+      err.code === 11000 ||
+      (err.message && (
+        err.message.toLowerCase().includes('duplicate key') ||
+        err.message.toLowerCase().includes('e11000')
+      ))
+    ) {
       return res.status(400).json({ message: 'Connection string already exists in your saved connections.' });
     }
 
-    // Validation or other errors
+    // Mongoose validation errors
     if (err.errors) {
-      // Mongoose validation errors
       const messages = Object.values(err.errors).map(e => e.message).join(' ');
       return res.status(400).json({ message: messages });
     }
