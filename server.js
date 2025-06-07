@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 const cors = require('cors');
 require('dotenv').config();
 const User = require('./models/user');
-const SavedConnection = require('./models/savedconnection');
+const SavedConnection = require('./models/SavedConnection');
 const mongoose = require('mongoose');
 const verifyToken = require('./middleware/verifyToken');
 
@@ -48,8 +48,8 @@ app.post('/api/register', async (req, res) => {
       return res.status(409).json({ message: 'Email already in use.' });
     }
     const hash = await bcrypt.hash(password, 10);
-    // databases is now an array of objects
-    const user = new User({ username, email, password: hash, databases: [] });
+    // Remove databases: []
+    const user = new User({ username, email, password: hash });
     await user.save();
     return res.status(200).json({ message: 'Registration successful.' });
   } catch (err) {
@@ -74,92 +74,6 @@ app.post('/api/login', async (req, res) => {
     { expiresIn: '1d' }
   );
   return res.json({ token }); // <-- THIS LINE IS CRITICAL
-});
-
-app.post('/api/create-database', verifyToken, async (req, res) => {
-  const { dbName } = req.body;
-  const user = await User.findById(req.user.userId);
-  if (user.databases.includes(dbName)) return res.status(400).json({ message: 'Database already exists' });
-  user.databases.push(dbName);
-  await User.updateOne({ _id: user._id }, { $set: { databases: user.databases } });
-  await db.createCollection(dbName);
-  const userDb = db.client.db(dbName);
-  await userDb.createCollection('default_collection'); // or any initial collection name
-  res.json({ message: 'Database created', databases: user.databases });
-});
-
-app.get('/api/user-databases', verifyToken, async (req, res) => {
-  const user = await User.findById(req.user.userId);
-  res.json({ databases: user.databases || [] });
-});
-
-app.get('/api/collections/:dbName', verifyToken, async (req, res) => {
-  const { dbName } = req.params;
-  const user = await User.findById(req.user.userId);
-  if (!user.databases.includes(dbName)) return res.status(403).json({ message: 'Unauthorized' });
-  const collections = await db.listCollections({ name: dbName }).toArray();
-  res.json(collections.map(c => c.name));
-});
-
-app.get('/api/data/:dbName/:collectionName', verifyToken, async (req, res) => {
-  const { dbName, collectionName } = req.params;
-  const user = await User.findById(req.user.userId);
-  if (!user.databases.includes(dbName)) return res.status(403).json({ message: 'Unauthorized' });
-  const userDb = db.client.db(dbName); // Switch to the user's database
-  const collection = userDb.collection(collectionName);
-  const data = await collection.find().toArray();
-  res.json(data);
-});
-
-app.post('/api/databases', async (req, res) => {
-  const { connectionString } = req.body;
-  if (!connectionString) {
-    return res.status(400).json({ error: 'Connection string required.' });
-  }
-  try {
-    const client = new MongoClient(connectionString);
-    await client.connect();
-    const admin = client.db().admin();
-    const dbs = await admin.listDatabases();
-    await client.close();
-    // Always return an array of database names
-    res.json(Array.isArray(dbs.databases) ? dbs.databases.map(db => db.name) : []);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to list databases.' });
-  }
-});
-
-app.post('/api/collections', async (req, res) => {
-  const { connectionString, dbName } = req.body;
-  if (!connectionString || !dbName) {
-    return res.status(400).json({ error: 'Connection string and dbName required.' });
-  }
-  try {
-    const client = new MongoClient(connectionString);
-    await client.connect();
-    const db = client.db(dbName);
-    const collections = await db.listCollections().toArray();
-    await client.close();
-    // Return only collection names
-    res.json(collections.map(col => ({ name: col.name })));
-  } catch (err) {
-    res.status(400).json({ error: 'Failed to fetch collections.' });
-  }
-});
-
-app.post('/api/documents', async (req, res) => {
-  const { connectionString, dbName, collectionName } = req.body;
-  try {
-    const client = new MongoClient(connectionString);
-    await client.connect();
-    const db = client.db(dbName);
-    const docs = await db.collection(collectionName).find({}).limit(10000).toArray();
-    await client.close();
-    // Always return an array of documents
-    res.json(Array.isArray(docs) ? docs : []);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch documents.' });
-  }
 });
 
 // Save a new connection (with clusterName)
