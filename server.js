@@ -9,7 +9,12 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = 'your_jwt_secret'; // Replace with your secret
 
-app.use(cors());
+const allowedOrigin = 'https://zackdbfrontend.vercel.app'; // Your frontend URL
+
+app.use(cors({
+  origin: allowedOrigin,
+  credentials: true
+}));
 app.use(express.json());
 app.use(cookieParser());
 
