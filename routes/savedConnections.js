@@ -9,6 +9,9 @@ router.post('/', verifyToken, async (req, res) => {
   if (!connectionString) {
     return res.status(400).json({ message: 'Connection string is required.' });
   }
+  if (!req.user.userId) {
+    return res.status(401).json({ message: 'User ID missing in token.' });
+  }
   connectionString = connectionString.trim();
   try {
     // Check for duplicate connection string for this user

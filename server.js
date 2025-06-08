@@ -193,7 +193,11 @@ app.post('/api/login', async (req, res) => {
 
     // Issue JWT
     const token = jwt.sign(
-      { email: user.email, username: user.username || '' },
+      { 
+        email: user.email, 
+        username: user.username || '', 
+        userId: user._id.toString() // <-- Add this line
+      },
       JWT_SECRET,
       { expiresIn: '2h' }
     );
