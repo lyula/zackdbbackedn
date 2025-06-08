@@ -8,8 +8,10 @@ router.get('/', verifyToken, async (req, res) => {
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(401).json({ error: 'Not authenticated' });
     res.json({
-      username: user.username,
-      email: user.email
+      user: {
+        username: user.username,
+        email: user.email
+      }
     });
   } catch (err) {
     console.error('Error in /api/user:', err);
