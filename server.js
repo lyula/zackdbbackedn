@@ -1,88 +1,19 @@
 const express = require('express');
-const { MongoClient, ObjectId } = require('mongodb');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 const cors = require('cors');
-
-app.use(cors({
-  origin: ['https://zackdbfrontend.vercel.app', 'http://localhost:3000'],
-  credentials: true
-}));
-require('dotenv').config();
-const User = require('./models/user');
-const SavedConnection = require('./models/ConnectionString');
-const mongoose = require('mongoose');
-const verifyToken = require('./middleware/verifyToken');
+const { MongoClient } = require('mongodb');
 
 const app = express();
+const PORT = process.env.PORT || 5000;
+
+app.use(cors());
 app.use(express.json());
 
-// Mongoose connection for all user operations
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => console.log('Connected to MongoDB Atlas'))
-.catch(err => console.error('Database connection error:', err));
-
-// Native MongoDB driver ONLY for dashboard/database/collection/document operations
-const uri = process.env.MONGODB_URI;
-let db;
-async function connectDB() {
-  const client = new MongoClient(uri);
-  try {
-    await client.connect();
-    db = client.db('zackdb');
-    console.log('Connected to MongoDB Atlas');
-  } catch (err) {
-    console.error('Database connection error:', err);
-  }
-}
-connectDB();
-
-// --- ALL ROUTES BELOW, OUTSIDE connectDB() ---
-// User registration and login use ONLY Mongoose User model
-
-// Register
-app.post('/api/register', async (req, res) => {
-  const { username, email, password } = req.body;
-  try {
-    const existing = await User.findOne({ email });
-    if (existing) {
-      return res.status(409).json({ message: 'Email already in use.' });
-    }
-    const hash = await bcrypt.hash(password, 10);
-    const user = new User({ username, email, password: hash });
-    await user.save();
-    return res.status(200).json({ message: 'Registration successful.' });
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error.' });
-  }
-});
-
-// Login
-app.post('/api/login', async (req, res) => {
-  const { email, password } = req.body;
-  const user = await User.findOne({ email });
-  if (!user) {
-    return res.status(401).json({ error: 'Invalid email or password.' });
-  }
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) {
-    return res.status(401).json({ error: 'Invalid email or password.' });
-  }
-  const token = jwt.sign(
-    { userId: user._id, username: user.username, email: user.email },
-    process.env.JWT_SECRET,
-    { expiresIn: '1d' }
-  );
-  return res.json({ token });
-});
-
-// List databases for a given connection string
+// List databases
 app.post('/api/list-databases', async (req, res) => {
   const { connectionString } = req.body;
-  console.log('Received connection string:', connectionString);
+  if (!connectionString) {
+    return res.status(400).json({ error: 'Missing connection string.' });
+  }
   let client;
   try {
     client = new MongoClient(connectionString, { serverApi: { version: '1' } });
@@ -90,36 +21,46 @@ app.post('/api/list-databases', async (req, res) => {
     const admin = client.db().admin();
     const dbs = await admin.listDatabases();
     await client.close();
-    return res.json(Array.isArray(dbs.databases) ? dbs.databases.map(db => db.name) : []);
+    return res.json(dbs.databases.map(db => db.name));
   } catch (err) {
     if (client) await client.close();
-    console.error('Error connecting to MongoDB:', err);
-    if (err.message && err.message.toLowerCase().includes('auth')) {
-      return res.status(401).json({ error: 'Authentication failed. Please check your username and password.' });
-    }
+    console.error('Error in /api/list-databases:', err);
     return res.status(500).json({ error: 'Failed to list databases.' });
   }
 });
 
-// List collections for a given database
+// List collections in a database
 app.post('/api/list-collections', async (req, res) => {
   const { connectionString, dbName } = req.body;
+  if (!connectionString || !dbName) {
+    return res.status(400).json({ error: 'Missing parameters.' });
+  }
+  let client;
   try {
-    const client = new MongoClient(connectionString);
+    client = new MongoClient(connectionString, { serverApi: { version: '1' } });
     await client.connect();
     const db = client.db(dbName);
-    const cols = await db.listCollections().toArray();
+    const collections = await db.listCollections().toArray();
     await client.close();
-    res.json(Array.isArray(cols) ? cols.map(col => col.name) : []);
+    return res.json(collections.map(col => col.name));
   } catch (err) {
-    res.status(500).json({ error: 'Failed to list collections.' });
+    if (client) await client.close();
+    console.error('Error in /api/list-collections:', err);
+    return res.status(500).json({ error: 'Failed to list collections.' });
   }
 });
 
-// Fetch documents for a collection (with pagination and latest first)
+// Fetch documents from a collection (with pagination)
 app.get('/api/documents', async (req, res) => {
-  // Read from query string
-  const { connectionString, dbName, collectionName, page = 1, pageSize = 10 } = req.query;
+  let { connectionString, dbName, collectionName, page = 1, pageSize = 10 } = req.query;
+  // Decode parameters (in case frontend or browser encodes them)
+  try {
+    connectionString = decodeURIComponent(connectionString);
+    dbName = decodeURIComponent(dbName);
+    collectionName = decodeURIComponent(collectionName);
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid parameters.' });
+  }
   if (!connectionString || !dbName || !collectionName) {
     return res.status(400).json({ error: 'Missing parameters.' });
   }
@@ -151,17 +92,6 @@ app.get('/api/documents', async (req, res) => {
   }
 });
 
-// User routes
-const userRoutes = require('./routes/user');
-app.use('/api/user', userRoutes);
-
-// Saved connections routes (all logic in the router)
-const savedConnectionsRoutes = require('./routes/savedConnections');
-app.use('/api/saved-connections', savedConnectionsRoutes);
-
-const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
-module.exports.verifyToken = verifyToken;
