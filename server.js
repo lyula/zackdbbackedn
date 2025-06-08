@@ -50,9 +50,9 @@ app.post('/api/list-collections', async (req, res) => {
   }
 });
 
-// Fetch documents from a collection (with pagination)
+// Fetch all documents from a collection (no backend pagination)
 app.get('/api/documents', async (req, res) => {
-  let { connectionString, dbName, collectionName, page = 1, pageSize = 10 } = req.query;
+  let { connectionString, dbName, collectionName } = req.query;
   // Decode parameters (in case frontend or browser encodes them)
   try {
     connectionString = decodeURIComponent(connectionString);
@@ -71,13 +71,8 @@ app.get('/api/documents', async (req, res) => {
     const db = client.db(dbName);
     const col = db.collection(collectionName);
 
-    const skip = (Number(page) - 1) * Number(pageSize);
-    const docs = await col.find({})
-      .sort({ _id: -1 })
-      .skip(skip)
-      .limit(Number(pageSize))
-      .toArray();
-    const total = await col.countDocuments();
+    const docs = await col.find({}).sort({ _id: -1 }).toArray();
+    const total = docs.length;
 
     await client.close();
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
