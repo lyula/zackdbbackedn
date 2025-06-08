@@ -203,14 +203,14 @@ app.post('/api/login', async (req, res) => {
       maxAge: 2 * 60 * 60 * 1000 // 2 hours
     });
 
-    return res.json({
+    // Return JSON, not 204!
+    return res.status(200).json({
       success: true,
       message: 'Login successful.',
       user: {
         email: user.email,
         username: user.username || ''
       }
-      // Do NOT send token in JSON!
     });
   } catch (err) {
     if (client) await client.close();
