@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = 'your_jwt_secret'; // Replace with your secret
 
-const allowedOrigin = 'https://zackdbfrontend.vercel.app'; // Your frontend URL
+const allowedOrigin = 'https://zackdbfrontend.vercel.app';
 
 app.use(cors({
   origin: allowedOrigin,
@@ -198,12 +198,10 @@ app.post('/api/login', async (req, res) => {
     // Set JWT as httpOnly cookie
     res.cookie('token', token, {
       httpOnly: true,
-      secure: true, // must be true for cross-site cookies
-      sameSite: 'none', // must be 'none' for cross-site cookies
-      maxAge: 2 * 60 * 60 * 1000 // 2 hours
+      secure: true,
+      sameSite: 'none',
+      maxAge: 2 * 60 * 60 * 1000
     });
-
-    // Return JSON, not 204!
     return res.status(200).json({
       success: true,
       message: 'Login successful.',
