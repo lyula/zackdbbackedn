@@ -33,6 +33,16 @@ function authenticateJWT(req, res, next) {
   }
 }
 
+// --- NEW: Get current user info (single source of truth) ---
+app.get('/api/me', authenticateJWT, (req, res) => {
+  res.json({
+    user: {
+      email: req.user.email,
+      username: req.user.username
+    }
+  });
+});
+
 // List databases
 app.post('/api/list-databases', async (req, res) => {
   const { connectionString } = req.body;
