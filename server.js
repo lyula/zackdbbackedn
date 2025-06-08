@@ -50,14 +50,15 @@ app.post('/api/list-collections', async (req, res) => {
   }
 });
 
-// Fetch all documents from a collection (no backend pagination)
+// Fetch documents from a collection with backend pagination
 app.get('/api/documents', async (req, res) => {
-  let { connectionString, dbName, collectionName } = req.query;
-  // Decode parameters (in case frontend or browser encodes them)
+  let { connectionString, dbName, collectionName, page = 1, limit = 10 } = req.query;
   try {
     connectionString = decodeURIComponent(connectionString);
     dbName = decodeURIComponent(dbName);
     collectionName = decodeURIComponent(collectionName);
+    page = parseInt(page, 10) || 1;
+    limit = parseInt(limit, 10) || 10;
   } catch (e) {
     return res.status(400).json({ error: 'Invalid parameters.' });
   }
@@ -71,8 +72,12 @@ app.get('/api/documents', async (req, res) => {
     const db = client.db(dbName);
     const col = db.collection(collectionName);
 
-    const docs = await col.find({}).sort({ _id: -1 }).toArray();
-    const total = docs.length;
+    const total = await col.countDocuments();
+    const docs = await col.find({})
+      .sort({ _id: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .toArray();
 
     await client.close();
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
