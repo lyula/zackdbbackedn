@@ -198,8 +198,8 @@ app.post('/api/login', async (req, res) => {
     // Set JWT as httpOnly cookie
     res.cookie('token', token, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none',
+      secure: true, // must be true for cross-site cookies
+      sameSite: 'none', // must be 'none' for cross-site cookies
       maxAge: 2 * 60 * 60 * 1000
     });
     return res.status(200).json({
