@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { MongoClient } = require('mongodb');
+const bcrypt = require('bcrypt');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -89,6 +90,74 @@ app.get('/api/documents', async (req, res) => {
     if (client) await client.close();
     console.error('Error in /api/documents:', err);
     return res.status(500).json({ error: 'Failed to fetch documents.' });
+  }
+});
+
+// Register a new user (with password hashing)
+app.post('/api/register', async (req, res) => {
+  const { connectionString, dbName, collectionName, email, password } = req.body;
+  if (!connectionString || !dbName || !collectionName || !email || !password) {
+    return res.status(400).json({ error: 'Missing parameters.' });
+  }
+  let client;
+  try {
+    client = new MongoClient(connectionString, { serverApi: { version: '1' } });
+    await client.connect();
+    const db = client.db(dbName);
+    const col = db.collection(collectionName);
+
+    // Check if user already exists
+    const existing = await col.findOne({ email });
+    if (existing) {
+      await client.close();
+      return res.status(409).json({ error: 'User already exists.' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insert new user
+    await col.insertOne({ email, password: hashedPassword });
+    await client.close();
+    return res.json({ success: true, message: 'User registered successfully.' });
+  } catch (err) {
+    if (client) await client.close();
+    console.error('Error in /api/register:', err);
+    return res.status(500).json({ error: 'Failed to register user.' });
+  }
+});
+
+// Login endpoint (with password hash check)
+app.post('/api/login', async (req, res) => {
+  const { connectionString, dbName, collectionName, email, password } = req.body;
+  if (!connectionString || !dbName || !collectionName || !email || !password) {
+    return res.status(400).json({ error: 'Missing parameters.' });
+  }
+  let client;
+  try {
+    client = new MongoClient(connectionString, { serverApi: { version: '1' } });
+    await client.connect();
+    const db = client.db(dbName);
+    const col = db.collection(collectionName);
+
+    // Find user by email
+    const user = await col.findOne({ email });
+    await client.close();
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    // Compare password hash
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    return res.json({ success: true, message: 'Login successful.' });
+  } catch (err) {
+    if (client) await client.close();
+    console.error('Error in /api/login:', err);
+    return res.status(500).json({ error: 'Failed to login.' });
   }
 });
 
