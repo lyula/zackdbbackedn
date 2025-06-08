@@ -1,57 +1,53 @@
 const express = require('express');
+const { MongoClient } = require('mongodb');
 const router = express.Router();
-const SavedConnection = require('../models/ConnectionString');
-const verifyToken = require('../middleware/verifyToken');
 
-// Save a new connection string for the logged-in user
-router.post('/', verifyToken, async (req, res) => {
-  let { connectionString } = req.body;
-  if (!connectionString) {
-    return res.status(400).json({ message: 'Connection string is required.' });
+// GET all saved connections for a user
+router.get('/', async (req, res) => {
+  const { connectionString, dbName, collectionName, userId } = req.query;
+  if (!connectionString || !dbName || !collectionName || !userId) {
+    return res.status(400).json({ error: 'Missing parameters.' });
   }
-  if (!req.user.userId) {
-    return res.status(401).json({ message: 'User ID missing in token.' });
-  }
-  connectionString = connectionString.trim();
+  let client;
   try {
-    // Check for duplicate connection string for this user
-    const connExists = await SavedConnection.findOne({ userId: req.user.userId, connectionString });
-    if (connExists) {
-      return res.status(400).json({ message: 'You have already saved this connection string.' });
-    }
-    const saved = new SavedConnection({
-      userId: req.user.userId,
-      connectionString
-    });
-    await saved.save();
-    return res.json({ message: 'Connection string saved.', saved });
+    client = new MongoClient(connectionString, { serverApi: { version: '1' } });
+    await client.connect();
+    const db = client.db(dbName);
+    const col = db.collection(collectionName);
+
+    // Find all saved connections for this user
+    const connections = await col.find({ userId }).toArray();
+    await client.close();
+    // Always return an array
+    return res.json(Array.isArray(connections) ? connections : []);
   } catch (err) {
-    console.error('Error saving connection string:', err); // Log error to server console
-    return res.status(500).json({ message: 'Failed to save connection string.', error: err.message });
+    if (client) await client.close();
+    console.error('Error in /api/saved-connections:', err);
+    return res.status(500).json({ error: 'Failed to fetch saved connections.' });
   }
 });
 
-// Get all saved connection strings for the logged-in user
-router.get('/', verifyToken, async (req, res) => {
-  try {
-    const connections = await SavedConnection.find({ userId: req.user.userId });
-    res.json(connections);
-  } catch {
-    res.status(500).json({ message: 'Failed to fetch connections.' });
+// POST to save a new connection
+router.post('/', async (req, res) => {
+  const { connectionString, dbName, collectionName, userId, name, uri } = req.body;
+  if (!connectionString || !dbName || !collectionName || !userId || !name || !uri) {
+    return res.status(400).json({ error: 'Missing parameters.' });
   }
-});
-
-// Delete a saved connection by connectionString
-router.delete('/:connectionString', verifyToken, async (req, res) => {
+  let client;
   try {
-    const decodedConnStr = decodeURIComponent(req.params.connectionString);
-    const result = await SavedConnection.deleteOne({ userId: req.user.userId, connectionString: decodedConnStr });
-    if (result.deletedCount === 0) {
-      return res.status(404).json({ message: 'Connection not found.' });
-    }
-    res.json({ message: 'Connection deleted.' });
+    client = new MongoClient(connectionString, { serverApi: { version: '1' } });
+    await client.connect();
+    const db = client.db(dbName);
+    const col = db.collection(collectionName);
+
+    // Insert new saved connection
+    await col.insertOne({ userId, name, uri, createdAt: new Date() });
+    await client.close();
+    return res.json({ success: true, message: 'Connection saved.' });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to delete connection.' });
+    if (client) await client.close();
+    console.error('Error in POST /api/saved-connections:', err);
+    return res.status(500).json({ error: 'Failed to save connection.' });
   }
 });
 

@@ -228,6 +228,12 @@ app.post('/api/login', async (req, res) => {
 
 app.use('/api/saved-connections', require('./routes/savedConnections'));
 
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Global error handler:', err);
+  res.status(500).json({ error: 'Internal server error.' });
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
