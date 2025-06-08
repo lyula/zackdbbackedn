@@ -2,12 +2,31 @@ const express = require('express');
 const cors = require('cors');
 const { MongoClient } = require('mongodb');
 const bcrypt = require('bcrypt');
+const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const JWT_SECRET = 'your_jwt_secret'; // Replace with your secret
 
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
+
+// JWT authentication middleware
+function authenticateJWT(req, res, next) {
+  const token = req.cookies.token;
+  if (!token) {
+    return res.status(401).json({ error: 'Missing or invalid token.' });
+  }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid or expired token.' });
+  }
+}
 
 // List databases
 app.post('/api/list-databases', async (req, res) => {
@@ -95,8 +114,8 @@ app.get('/api/documents', async (req, res) => {
 
 // Register a new user (with password hashing)
 app.post('/api/register', async (req, res) => {
-  const { connectionString, dbName, collectionName, email, password } = req.body;
-  if (!connectionString || !dbName || !collectionName || !email || !password) {
+  const { connectionString, dbName, collectionName, email, password, username } = req.body;
+  if (!connectionString || !dbName || !collectionName || !email || !password || !username) {
     return res.status(400).json({ error: 'Missing parameters.' });
   }
   let client;
@@ -116,8 +135,8 @@ app.post('/api/register', async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert new user
-    await col.insertOne({ email, password: hashedPassword });
+    // Insert new user with username
+    await col.insertOne({ email, password: hashedPassword, username });
     await client.close();
     return res.json({ success: true, message: 'User registered successfully.' });
   } catch (err) {
@@ -142,18 +161,42 @@ app.post('/api/login', async (req, res) => {
 
     // Find user by email
     const user = await col.findOne({ email });
-    await client.close();
     if (!user) {
+      await client.close();
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
     // Compare password hash
     const match = await bcrypt.compare(password, user.password);
+    await client.close();
     if (!match) {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
-    return res.json({ success: true, message: 'Login successful.' });
+    // Issue JWT
+    const token = jwt.sign(
+      { email: user.email, username: user.username || '' },
+      JWT_SECRET,
+      { expiresIn: '2h' }
+    );
+
+    // Set JWT as httpOnly cookie
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // only send over HTTPS in production
+      sameSite: 'lax',
+      maxAge: 2 * 60 * 60 * 1000 // 2 hours
+    });
+
+    return res.json({
+      success: true,
+      message: 'Login successful.',
+      user: {
+        email: user.email,
+        username: user.username || ''
+      }
+      // Do NOT send token in JSON!
+    });
   } catch (err) {
     if (client) await client.close();
     console.error('Error in /api/login:', err);
