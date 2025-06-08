@@ -38,7 +38,8 @@ app.get('/api/me', authenticateJWT, (req, res) => {
   res.json({
     user: {
       email: req.user.email,
-      username: req.user.username
+      username: req.user.username,
+      userId: req.user.userId // <-- Add this line
     }
   });
 });
@@ -214,7 +215,8 @@ app.post('/api/login', async (req, res) => {
       message: 'Login successful.',
       user: {
         email: user.email,
-        username: user.username || ''
+        username: user.username || '',
+        userId: user._id.toString() // <-- Add this line
       }
     });
   } catch (err) {
