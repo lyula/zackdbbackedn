@@ -133,6 +133,9 @@ app.post('/api/register', async (req, res) => {
   if (!connectionString || !dbName || !collectionName || !email || !password || !username) {
     return res.status(400).json({ error: 'Missing parameters.' });
   }
+  if (typeof username !== 'string' || username.trim().length < 3) {
+    return res.status(400).json({ error: 'Username must be at least 3 characters.' });
+  }
   let client;
   try {
     client = new MongoClient(connectionString, { serverApi: { version: '1' } });
@@ -151,7 +154,7 @@ app.post('/api/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert new user with username
-    await col.insertOne({ email, password: hashedPassword, username });
+    await col.insertOne({ email, password: hashedPassword, username: username.trim() });
     await client.close();
     return res.json({ success: true, message: 'User registered successfully.' });
   } catch (err) {
