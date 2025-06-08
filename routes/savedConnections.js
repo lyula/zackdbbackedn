@@ -5,28 +5,26 @@ const verifyToken = require('../middleware/verifyToken');
 
 // Save a new connection string for the logged-in user
 router.post('/', verifyToken, async (req, res) => {
-  let { connectionString, clusterName } = req.body;
-  if (!connectionString || !clusterName) {
-    return res.status(400).json({ message: 'Connection string already exists, check saved connections list.' });
+  let { connectionString } = req.body;
+  if (!connectionString) {
+    return res.status(400).json({ message: 'Connection string is required.' });
   }
   connectionString = connectionString.trim();
   try {
-    // Check for duplicate cluster name for this user
-    const nameExists = await SavedConnection.findOne({ userId: req.user.userId, clusterName });
-    if (nameExists) {
-      return res.status(400).json({ message: 'Connection string already exists, check saved connections list.' });
+    // Check for duplicate connection string for this user
+    const connExists = await SavedConnection.findOne({ userId: req.user.userId, connectionString });
+    if (connExists) {
+      return res.status(400).json({ message: 'You have already saved this connection string.' });
     }
-    // Let MongoDB handle duplicate connection strings via unique index
     const saved = new SavedConnection({
       userId: req.user.userId,
-      connectionString,
-      clusterName
+      connectionString
     });
     await saved.save();
     return res.json({ message: 'Connection string saved.', saved });
   } catch (err) {
-    // For ALL errors, always return the same message
-    return res.status(400).json({ message: 'Connection string already exists, check saved connections list.' });
+    console.error('Error saving connection string:', err); // Log error to server console
+    return res.status(500).json({ message: 'Failed to save connection string.', error: err.message });
   }
 });
 
