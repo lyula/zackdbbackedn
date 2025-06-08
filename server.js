@@ -7,7 +7,7 @@ const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const JWT_SECRET = 'your_jwt_secret'; // Replace with your secret
+const JWT_SECRET = '@zackdb2025'; // Replace with your secret
 
 const allowedOrigin = 'https://zackdbfrontend.vercel.app';
 
