@@ -224,6 +224,8 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+app.use('/api/saved-connections', require('./routes/savedConnections'));
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
