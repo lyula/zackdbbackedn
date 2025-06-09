@@ -4,6 +4,7 @@ const { MongoClient } = require('mongodb');
 const bcrypt = require('bcrypt');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = '@zackdb2025'; // Replace with your secret
@@ -26,6 +27,18 @@ app.options('*', cors(corsOptions));
 
 app.use(express.json());
 app.use(cookieParser());
+
+// Connect Mongoose to your MongoDB
+mongoose.connect(
+  process.env.MONGODB_URI ||
+    'mongodb+srv://sacredlyula:YwGHXVgqCW13ywjf@zackdb.es0atkz.mongodb.net/?retryWrites=true&w=majority&appName=zackdb',
+  {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  }
+)
+.then(() => console.log('Mongoose connected!'))
+.catch(err => console.error('Mongoose connection error:', err));
 
 // JWT authentication middleware
 function authenticateJWT(req, res, next) {

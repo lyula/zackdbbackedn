@@ -2,11 +2,13 @@ const express = require('express');
 const router = express.Router();
 const ConnectionString = require('../models/ConnectionString');
 const verifyToken = require('../middleware/verifyToken');
+const mongoose = require('mongoose');
 
 // POST /api/saved-connections
 router.post('/', verifyToken, async (req, res) => {
   try {
-    const userId = req.user.userId; // userId from decoded JWT
+    // Convert userId string to ObjectId
+    const userId = mongoose.Types.ObjectId(req.user.userId);
     const { connectionString } = req.body;
 
     if (!userId || !connectionString) {
@@ -23,6 +25,7 @@ router.post('/', verifyToken, async (req, res) => {
     await newConn.save();
     return res.status(201).json(newConn);
   } catch (err) {
+    console.error('Error in /api/saved-connections:', err); // Add this for debugging
     return res.status(500).json({ message: 'Failed to save connection.' });
   }
 });
