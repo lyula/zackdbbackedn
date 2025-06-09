@@ -251,7 +251,7 @@ app.post('/api/login', async (req, res) => {
 app.use('/api/saved-connections', require('./routes/savedConnections'));
 
 // Register your documents routes
-app.use('/api/documents', require('./routes/documents'));
+app.use('/api', require('./routes/documents'));
 
 // Global error handler
 app.use((err, req, res, next) => {
