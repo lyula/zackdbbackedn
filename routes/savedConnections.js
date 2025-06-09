@@ -6,7 +6,8 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   const { connectionString, dbName, collectionName, userId } = req.query;
   if (!connectionString || !dbName || !collectionName || !userId) {
-    return res.status(400).json({ error: 'Missing parameters.' });
+    // Return empty array if parameters are missing, not an error
+    return res.json([]);
   }
   let client;
   try {
@@ -15,7 +16,6 @@ router.get('/', async (req, res) => {
     const db = client.db(dbName);
     const col = db.collection(collectionName);
 
-    // Find all saved connections for this user
     const connections = await col.find({ userId }).toArray();
     await client.close();
     // Always return an array
@@ -23,7 +23,8 @@ router.get('/', async (req, res) => {
   } catch (err) {
     if (client) await client.close();
     console.error('Error in /api/saved-connections:', err);
-    return res.status(500).json({ error: 'Failed to fetch saved connections.' });
+    // On error, return empty array (or you can return an error if you want to show a real error)
+    return res.json([]);
   }
 });
 

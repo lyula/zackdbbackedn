@@ -5,16 +5,25 @@ const bcrypt = require('bcrypt');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 
-const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = '@zackdb2025'; // Replace with your secret
 
 const allowedOrigin = 'https://zackdbfrontend.vercel.app';
 
-app.use(cors({
+const corsOptions = {
   origin: allowedOrigin,
-  credentials: true
-}));
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+const app = express();
+
+// CORS must be the first middleware
+app.use(cors(corsOptions));
+// Explicitly handle preflight requests for all routes
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 app.use(cookieParser());
 
