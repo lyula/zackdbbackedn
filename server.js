@@ -201,12 +201,12 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
-    // Issue JWT
+    // Issue JWT with userId
     const token = jwt.sign(
       { 
         email: user.email, 
         username: user.username || '', 
-        userId: user._id.toString() // <-- Add this line
+        userId: user._id.toString() // <-- Ensure this is present
       },
       JWT_SECRET,
       { expiresIn: '2h' }
@@ -225,7 +225,7 @@ app.post('/api/login', async (req, res) => {
       user: {
         email: user.email,
         username: user.username || '',
-        userId: user._id.toString() // <-- Add this line
+        userId: user._id.toString() // <-- Ensure this is present
       }
     });
   } catch (err) {

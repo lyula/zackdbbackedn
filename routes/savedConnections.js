@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const ConnectionString = require('../models/ConnectionString');
+const verifyToken = require('../middleware/verifyToken');
 
 // POST /api/saved-connections
-router.post('/', async (req, res) => {
+router.post('/', verifyToken, async (req, res) => {
   try {
-    // Get userId from session or authentication middleware
-    const userId = req.user?._id || req.session?.userId;
+    const userId = req.user.userId; // userId from decoded JWT
     const { connectionString } = req.body;
 
     if (!userId || !connectionString) {
