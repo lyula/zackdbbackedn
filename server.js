@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
+const User = require('./models/user'); // Add this at the top if not present
 
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = '@zackdb2025'; // Replace with your secret
@@ -159,29 +160,21 @@ app.post('/api/register', async (req, res) => {
   if (typeof username !== 'string' || username.trim().length < 3) {
     return res.status(400).json({ error: 'Username must be at least 3 characters.' });
   }
-  let client;
   try {
-    client = new MongoClient(connectionString, { serverApi: { version: '1' } });
-    await client.connect();
-    const db = client.db(dbName);
-    const col = db.collection(collectionName);
-
-    // Check if user already exists
-    const existing = await col.findOne({ email });
+    // Check if user already exists using Mongoose
+    const existing = await User.findOne({ email });
     if (existing) {
-      await client.close();
       return res.status(409).json({ error: 'User already exists.' });
     }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert new user with username
-    await col.insertOne({ email, password: hashedPassword, username: username.trim() });
-    await client.close();
+    // Create user with Mongoose (timestamps will be added automatically)
+    await User.create({ email, password: hashedPassword, username: username.trim() });
+
     return res.json({ success: true, message: 'User registered successfully.' });
   } catch (err) {
-    if (client) await client.close();
     console.error('Error in /api/register:', err);
     return res.status(500).json({ error: 'Failed to register user.' });
   }
