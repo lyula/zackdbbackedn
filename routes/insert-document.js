@@ -1,35 +1,35 @@
 const express = require('express');
-const router = express.Router();
 const { MongoClient } = require('mongodb');
 const bcrypt = require('bcrypt');
+const router = express.Router();
 
-// POST /api/insert-document
-router.post('/api/insert-document', async (req, res) => {
+router.post('/insert-document', async (req, res) => {
   const { connectionString, dbName, collectionName, document } = req.body;
   if (!connectionString || !dbName || !collectionName || !document) {
     return res.status(400).json({ error: 'Missing required fields.' });
   }
+  let client;
   try {
-    // Hash password if present
-    if (document.password) {
-      const saltRounds = 10;
-      document.password = await bcrypt.hash(document.password, saltRounds);
-    }
-    // Remove fields that should not be set by user
-    delete document._id;
-    delete document.id;
-    delete document.userId;
-    delete document.createdAt;
-    delete document.updatedAt;
-    delete document.__v;
-
-    const client = await MongoClient.connect(connectionString, { useUnifiedTopology: true });
+    client = new MongoClient(connectionString, { serverApi: { version: '1' } });
+    await client.connect();
     const db = client.db(dbName);
-    const result = await db.collection(collectionName).insertOne(document);
+    const col = db.collection(collectionName);
+
+    // Remove _id if present
+    if (document._id) delete document._id;
+
+    // Hash password if present
+    if (document.password && typeof document.password === 'string' && document.password.length > 0) {
+      document.password = await bcrypt.hash(document.password, 10);
+    }
+
+    const result = await col.insertOne(document);
     await client.close();
-    res.json({ success: true, insertedId: result.insertedId });
+    return res.json({ success: true, insertedId: result.insertedId });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    if (client) await client.close();
+    console.error('Error in /api/insert-document:', err);
+    return res.status(500).json({ error: 'Insert failed.' });
   }
 });
 
