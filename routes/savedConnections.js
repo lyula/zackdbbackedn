@@ -42,7 +42,8 @@ router.post('/', require('../middleware/verifyToken'), async (req, res) => {
       return res.status(409).json({ message: 'Connection string already exists for this user.' });
     }
 
-    const newConn = new ConnectionString({ userId, connectionString });
+    const username = req.user.username; // <-- get username from JWT
+    const newConn = new ConnectionString({ userId, username, connectionString }); // <-- include username
     await newConn.save();
     return res.status(201).json(newConn);
   } catch (err) {
