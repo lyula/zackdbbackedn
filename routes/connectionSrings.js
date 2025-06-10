@@ -13,8 +13,9 @@ router.get('/', authMiddleware, async (req, res) => {
 // Save a new connection string for the logged-in user
 router.post('/', authMiddleware, async (req, res) => {
   const userId = req.user.id;
+  const username = req.user.username; // <-- get username from auth middleware
   const { connectionString } = req.body;
-  const newString = new ConnectionString({ userId, connectionString });
+  const newString = new ConnectionString({ userId, username, connectionString }); // <-- include username
   await newString.save();
   res.status(201).json(newString);
 });
