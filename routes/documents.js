@@ -118,7 +118,7 @@ router.put('/document', async (req, res) => {
     const collection = db.collection(decodeURIComponent(collectionName));
     const result = await collection.updateOne(
       { _id: new ObjectId(id) },
-      { $set: update }
+      { $set: { ...update, updatedAt: new Date() } }
     );
     if (result.matchedCount === 0) {
       return res.status(404).json({ error: 'Document not found.' });
