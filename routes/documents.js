@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb'); // <-- Add ObjectId here
 
 // Helper to get MongoDB client
 async function getClient(connectionString) {
@@ -76,6 +76,79 @@ router.get('/documents-all', async (req, res) => {
     res.json({ documents: docs });
   } catch (err) {
     res.status(500).json({ error: err.message || 'Failed to fetch all documents.' });
+  } finally {
+    if (client) await client.close();
+  }
+});
+
+// Get a single document by ID
+router.get('/document', async (req, res) => {
+  const { connectionString, dbName, collectionName, id } = req.query;
+  if (!connectionString || !dbName || !collectionName || !id) {
+    return res.status(400).json({ error: 'Missing required query parameters.' });
+  }
+  let client;
+  try {
+    client = await getClient(decodeURIComponent(connectionString));
+    const db = client.db(decodeURIComponent(dbName));
+    const collection = db.collection(decodeURIComponent(collectionName));
+    const doc = await collection.findOne({ _id: new require('mongodb').ObjectId(id) });
+    if (!doc) {
+      return res.status(404).json({ error: 'Document not found.' });
+    }
+    res.json(doc);
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to fetch document.' });
+  } finally {
+    if (client) await client.close();
+  }
+});
+
+// Update a document by ID
+router.put('/document', async (req, res) => {
+  const { connectionString, dbName, collectionName, id } = req.query;
+  const update = req.body;
+  if (!connectionString || !dbName || !collectionName || !id) {
+    return res.status(400).json({ error: 'Missing required query parameters.' });
+  }
+  let client;
+  try {
+    client = await getClient(decodeURIComponent(connectionString));
+    const db = client.db(decodeURIComponent(dbName));
+    const collection = db.collection(decodeURIComponent(collectionName));
+    const result = await collection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: update }
+    );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Document not found.' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to update document.' });
+  } finally {
+    if (client) await client.close();
+  }
+});
+
+// Delete a document by ID
+router.delete('/document', async (req, res) => {
+  const { connectionString, dbName, collectionName, id } = req.query;
+  if (!connectionString || !dbName || !collectionName || !id) {
+    return res.status(400).json({ error: 'Missing required query parameters.' });
+  }
+  let client;
+  try {
+    client = await getClient(decodeURIComponent(connectionString));
+    const db = client.db(decodeURIComponent(dbName));
+    const collection = db.collection(decodeURIComponent(collectionName));
+    const result = await collection.deleteOne({ _id: new ObjectId(id) });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Document not found.' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to delete document.' });
   } finally {
     if (client) await client.close();
   }

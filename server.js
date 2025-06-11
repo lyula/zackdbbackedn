@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
@@ -235,6 +235,38 @@ app.post('/api/login', async (req, res) => {
 app.use('/api/saved-connections', require('./routes/savedConnections'));
 app.use('/api', require('./routes/documents'));
 app.use('/api', require('./routes/insert-document')); // <-- Add this line
+
+// Fetch a single document by ID
+app.get('/api/document', async (req, res) => {
+  let { connectionString, dbName, collectionName, id } = req.query;
+  try {
+    connectionString = decodeURIComponent(connectionString);
+    dbName = decodeURIComponent(dbName);
+    collectionName = decodeURIComponent(collectionName);
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid parameters.' });
+  }
+  if (!connectionString || !dbName || !collectionName || !id) {
+    return res.status(400).json({ error: 'Missing parameters.' });
+  }
+  let client;
+  try {
+    client = new MongoClient(connectionString, { serverApi: { version: '1' } });
+    await client.connect();
+    const db = client.db(dbName);
+    const col = db.collection(collectionName);
+    const doc = await col.findOne({ _id: new ObjectId(id) });
+    await client.close();
+    if (!doc) {
+      return res.status(404).json({ error: 'Document not found.' });
+    }
+    return res.json(doc);
+  } catch (err) {
+    if (client) await client.close();
+    console.error('Error in /api/document:', err);
+    return res.status(500).json({ error: 'Failed to fetch document.' });
+  }
+});
 
 // Global error handler
 app.use((err, req, res, next) => {
