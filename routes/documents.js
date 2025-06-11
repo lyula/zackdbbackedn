@@ -154,33 +154,27 @@ router.delete('/document', async (req, res) => {
   }
 });
 
-router.post('/documents', async (req, res) => {
-  const { connectionString, dbName, collectionName, document } = req.body;
-
-  if (!connectionString || !dbName || !collectionName || !document || typeof document !== 'object') {
-    return res.status(400).json({ error: 'Missing parameters' });
-  }
-
-  let client;
+router.post('/api/document', async (req, res) => {
   try {
-    client = await MongoClient.connect(connectionString, { useNewUrlParser: true, useUnifiedTopology: true });
+    const { connectionString, dbName, collectionName, doc } = req.body;
+    // Add timestamps
+    const now = new Date();
+    const docToInsert = {
+      ...doc,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    // Connect to MongoDB and insert
+    const client = await MongoClient.connect(connectionString, { useNewUrlParser: true, useUnifiedTopology: true });
     const db = client.db(dbName);
     const collection = db.collection(collectionName);
+    await collection.insertOne(docToInsert);
 
-    // Remove sensitive fields if present (defensive)
-    delete document._id;
-    delete document.password;
-    delete document.hash;
-    delete document.createdAt;
-    delete document.updatedAt;
-    delete document.__v;
-
-    const result = await collection.insertOne(document);
-    res.json({ insertedId: result.insertedId });
+    client.close();
+    res.status(200).json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Failed to insert document' });
-  } finally {
-    if (client) await client.close();
+    res.status(500).json({ error: err.message || 'Failed to add document' });
   }
 });
 
