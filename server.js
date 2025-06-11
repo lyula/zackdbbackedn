@@ -267,6 +267,38 @@ app.get('/api/document', async (req, res) => {
   }
 });
 
+// Insert a new document into a collection
+app.post('/api/documents', async (req, res) => {
+  let { connectionString, dbName, collectionName, document } = req.body;
+  try {
+    connectionString = decodeURIComponent(connectionString);
+    dbName = decodeURIComponent(dbName);
+    collectionName = decodeURIComponent(collectionName);
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid parameters.' });
+  }
+  if (!connectionString || !dbName || !collectionName || !document) {
+    return res.status(400).json({ error: 'Missing parameters.' });
+  }
+  let client;
+  try {
+    client = new MongoClient(connectionString, { serverApi: { version: '1' } });
+    await client.connect();
+    const db = client.db(dbName);
+    const col = db.collection(collectionName);
+
+    // Insert the document
+    const result = await col.insertOne(document);
+
+    await client.close();
+    return res.status(201).json({ success: true, insertedId: result.insertedId });
+  } catch (err) {
+    if (client) await client.close();
+    console.error('Error in POST /api/documents:', err);
+    return res.status(500).json({ error: 'Failed to insert document.' });
+  }
+});
+
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
