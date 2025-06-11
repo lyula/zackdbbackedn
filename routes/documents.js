@@ -154,4 +154,34 @@ router.delete('/document', async (req, res) => {
   }
 });
 
+router.post('/documents', async (req, res) => {
+  const { connectionString, dbName, collectionName, document } = req.body;
+
+  if (!connectionString || !dbName || !collectionName || !document || typeof document !== 'object') {
+    return res.status(400).json({ error: 'Missing parameters' });
+  }
+
+  let client;
+  try {
+    client = await MongoClient.connect(connectionString, { useNewUrlParser: true, useUnifiedTopology: true });
+    const db = client.db(dbName);
+    const collection = db.collection(collectionName);
+
+    // Remove sensitive fields if present (defensive)
+    delete document._id;
+    delete document.password;
+    delete document.hash;
+    delete document.createdAt;
+    delete document.updatedAt;
+    delete document.__v;
+
+    const result = await collection.insertOne(document);
+    res.json({ insertedId: result.insertedId });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to insert document' });
+  } finally {
+    if (client) await client.close();
+  }
+});
+
 module.exports = router;

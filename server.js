@@ -234,7 +234,6 @@ app.post('/api/login', async (req, res) => {
 
 app.use('/api/saved-connections', require('./routes/savedConnections'));
 app.use('/api', require('./routes/documents'));
-app.use('/api', require('./routes/insert-document')); // <-- Add this line
 
 // Fetch a single document by ID
 app.get('/api/document', async (req, res) => {
