@@ -305,6 +305,9 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error.' });
 });
 
+const bulkEmailRoutes = require('./routes/bulk-email');
+app.use('/api', bulkEmailRoutes);
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
